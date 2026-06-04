@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">評価ポイント設定</h1>
+    <div>
+        <button type="button" class="btn btn-outline-info" onclick="applyNbaPreset()">
+            <i class="bi bi-magic"></i> NBA Efficiency
+        </button>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('settings') }}">
+    <div class="card mb-3">
+        <div class="card-header">基本設定</div>
+        <div class="card-body">
+            <div class="mb-2 row">
+                <label for="default_quarter_length" class="col-8 col-form-label">クオーター時間 (分)</label>
+                <div class="col-4"><input type="number" step="1" class="form-control text-end" id="default_quarter_length" name="default_quarter_length" value="{{ weights.default_quarter_length|int }}"></div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-success-subtle">オフェンス (加点)</div>
+                <div class="card-body">
+                    <div class="mb-2 row">
+                        <label for="w_3p_made" class="col-8 col-form-label">3P成功</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_3p_made" name="w_3p_made" value="{{ weights.w_3p_made }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_2p_made" class="col-8 col-form-label">2P成功</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_2p_made" name="w_2p_made" value="{{ weights.w_2p_made }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_ft_made" class="col-8 col-form-label">FT成功</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_ft_made" name="w_ft_made" value="{{ weights.w_ft_made }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_ast" class="col-8 col-form-label">アシスト</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_ast" name="w_ast" value="{{ weights.w_ast }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_orb" class="col-8 col-form-label">オフェンスリバウンド</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_orb" name="w_orb" value="{{ weights.w_orb }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_fd" class="col-8 col-form-label">被ファール (FD)</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_fd" name="w_fd" value="{{ weights.w_fd }}"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-primary-subtle">ディフェンス (加点)</div>
+                <div class="card-body">
+                    <div class="mb-2 row">
+                        <label for="w_drb" class="col-8 col-form-label">ディフェンスリバウンド</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_drb" name="w_drb" value="{{ weights.w_drb }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_stl" class="col-8 col-form-label">スティール</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_stl" name="w_stl" value="{{ weights.w_stl }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_blk" class="col-8 col-form-label">ブロック</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_blk" name="w_blk" value="{{ weights.w_blk }}"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header bg-danger-subtle">マイナス項目 (減点)</div>
+                <div class="card-body">
+                    <div class="mb-2 row">
+                        <label for="w_pf" class="col-8 col-form-label">ファール (PF)</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_pf" name="w_pf" value="{{ weights.w_pf }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_to" class="col-8 col-form-label">ターンオーバー</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_to" name="w_to" value="{{ weights.w_to }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_ft_miss" class="col-8 col-form-label">FT失敗</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_ft_miss" name="w_ft_miss" value="{{ weights.w_ft_miss }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_3p_miss" class="col-8 col-form-label">3P失敗</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_3p_miss" name="w_3p_miss" value="{{ weights.w_3p_miss }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_2p_miss" class="col-8 col-form-label">2P失敗</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_2p_miss" name="w_2p_miss" value="{{ weights.w_2p_miss }}"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header bg-info-subtle">専用ボーナス (100%自分でコントロール可能な行動)</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-2 row">
+                        <label for="w_ring_attack" class="col-8 col-form-label">リングアタック</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_ring_attack" name="w_ring_attack" value="{{ weights.w_ring_attack }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_ft_drawn_bonus" class="col-8 col-form-label">フリースロー(FT)獲得</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_ft_drawn_bonus" name="w_ft_drawn_bonus" value="{{ weights.w_ft_drawn_bonus }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_loose_ball_dive" class="col-8 col-form-label">ルーズボール・ダイブ</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_loose_ball_dive" name="w_loose_ball_dive" value="{{ weights.w_loose_ball_dive }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_gamemake_boost" class="col-8 col-form-label">ゲームメイク・ブースト</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_gamemake_boost" name="w_gamemake_boost" value="{{ weights.w_gamemake_boost }}"></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-2 row">
+                        <label for="w_bench_datahack" class="col-8 col-form-label">ベンチ・データハック</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_bench_datahack" name="w_bench_datahack" value="{{ weights.w_bench_datahack }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_captain_boost" class="col-8 col-form-label">キャプテン・ブースト</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_captain_boost" name="w_captain_boost" value="{{ weights.w_captain_boost }}"></div>
+                    </div>
+                    <div class="mb-2 row">
+                        <label for="w_charge_drawn" class="col-8 col-form-label">オフェンスチャージ獲得</label>
+                        <div class="col-4"><input type="number" step="0.1" class="form-control text-end" id="w_charge_drawn" name="w_charge_drawn" value="{{ weights.w_charge_drawn }}"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary me-md-2">キャンセル</a>
+        <button type="submit" class="btn btn-primary px-4">保存</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyNbaPreset() {
+    if (!confirm('現在の設定をNBA Efficiency公式に合わせて上書きしますか？\n\n計算式: (PTS + REB + AST + STL + BLK) - (Missed FG + Missed FT + TO)')) {
+        return;
+    }
+    // PTS
+    document.getElementById('w_3p_made').value = 3.0;
+    document.getElementById('w_2p_made').value = 2.0;
+    document.getElementById('w_ft_made').value = 1.0;
+    // Positive Stats
+    document.getElementById('w_orb').value = 1.0;
+    document.getElementById('w_drb').value = 1.0;
+    document.getElementById('w_ast').value = 1.0;
+    document.getElementById('w_stl').value = 1.0;
+    document.getElementById('w_blk').value = 1.0;
+    document.getElementById('w_fd').value = 0.0;
+    // Negative Stats
+    document.getElementById('w_pf').value = 0.0;
+    document.getElementById('w_to').value = -1.0;
+    document.getElementById('w_ft_miss').value = -1.0;
+    document.getElementById('w_3p_miss').value = -1.0;
+    document.getElementById('w_2p_miss').value = -1.0;
+    // Custom Bonus Stats (Not in NBA)
+    document.getElementById('w_ring_attack').value = 0.0;
+    document.getElementById('w_ft_drawn_bonus').value = 0.0;
+    document.getElementById('w_loose_ball_dive').value = 0.0;
+    document.getElementById('w_gamemake_boost').value = 0.0;
+    document.getElementById('w_bench_datahack').value = 0.0;
+    document.getElementById('w_captain_boost').value = 0.0;
+    document.getElementById('w_charge_drawn').value = 0.0;
+}
+</script>
+{% endblock %}

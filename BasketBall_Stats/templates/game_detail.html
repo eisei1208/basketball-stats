@@ -1,0 +1,657 @@
+{% extends "base.html" %}
+
+{% macro stat_card(q, field_name, label, col_class='col-6', bg_class='') %}
+<div class="{{ col_class }}">
+    <div class="card text-center h-100 {{ bg_class }}">
+        <div class="card-header small py-1">{{ label }}</div>
+        <div class="card-body p-1">
+            <div class="input-group input-group-sm">
+                <button class="btn btn-outline-success" onclick="updateStat({{ q.stats.id }}, '{{ field_name }}', 1)">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+                <span class="form-control text-center fs-5 fw-bold" id="val-{{ field_name }}-{{ q.stats.id }}">{{ q.stats[field_name] | default(0) }}</span>
+                <button class="btn btn-outline-danger" id="btn-minus-{{ field_name }}-{{ q.stats.id }}" onclick="updateStat({{ q.stats.id }}, '{{ field_name }}', -1)" {{ 'disabled' if (q.stats[field_name] | default(0)) == 0 }}>
+                    <i class="bi bi-dash-lg"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3" id="game-header-info">
+    <div>
+        <h2 class="h4 mb-0">
+            {{ game.opponent }}
+            <button class="btn btn-sm btn-link text-secondary" data-bs-toggle="modal" data-bs-target="#editGameModal">
+                <i class="bi bi-pencil-square"></i>
+            </button>
+        </h2>
+        <small class="text-muted">{{ game.date.strftime('%Y-%m-%d') if game.date }} - {{ game.category }}</small>
+        {% if game.leverage_item %}
+        <span class="badge bg-warning text-dark ms-2"><i class="bi bi-lightning-charge-fill"></i> 勝負項目: {{ game.leverage_item_name }}</span>
+        {% endif %}
+    </div>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary"><i class="bi bi-list-ul"></i> 一覧に戻る</a>
+  </div>
+  <div class="text-end mb-2">
+      <button class="btn btn-sm btn-link text-secondary p-0 text-decoration-none" onclick="toggleHeader()">
+          <small id="toggle-header-text">ヘッダーを隠す</small> <i id="toggle-header-icon" class="bi bi-chevron-up"></i>
+      </button>
+  </div>
+  <!-- タブ部分 -->
+  <ul class="nav nav-tabs" id="quarterTabs" role="tablist">
+    <!-- Total Tab -->
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-total" data-bs-toggle="tab" data-bs-target="#content-total" type="button" role="tab">試合全体</button>
+    </li>
+    {% for q in quarters %}
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-{{ q.id }}" data-bs-toggle="tab" data-bs-target="#content-{{ q.id }}" type="button" role="tab">{{ q.name }}</button>
+    </li>
+    {% endfor %}
+    <!-- OT追加ボタン -->
+    <li class="nav-item">
+      <button class="btn btn-sm btn-outline-primary ms-2" onclick="addOT({{ game.id }})"><i class="bi bi-plus-lg"></i> OT</button>
+    </li>
+  </ul>
+
+  <!-- 集計情報エリア -->
+  <div class="card mb-3 border-top-0 rounded-0 rounded-bottom" id="game-summary-info">
+      <div class="card-body py-2 bg-light">
+          <div class="row text-center">
+              <div class="col">
+                  <div class="small text-muted">総得点</div>
+                  <div class="fw-bold fs-5" id="summary-total-score">{{ summary.total_score }}</div>
+              </div>
+              <div class="col">
+                  <div class="small text-muted">総リバウンド</div>
+                  <div class="fw-bold fs-5" id="summary-total-rebounds">{{ summary.total_rebounds }}</div>
+              </div>
+              <div class="col">
+                  <div class="small text-muted">出場時間</div>
+                  <div class="fw-bold fs-5" id="summary-total-play-time">{{ (summary.total_play_time_sec // 60)|int }}:{{ '%02d'|format(summary.total_play_time_sec % 60) }}</div>
+              </div>
+              <div class="col">
+                  <div class="small text-muted">評価</div>
+                  <div class="fw-bold fs-5" id="summary-total-evaluation">{{ "%.1f"|format(summary.total_evaluation) }}</div>
+              </div>
+          </div>
+      </div>
+  </div>
+
+  <!-- コンテンツ部分 -->
+  <div class="tab-content" id="myTabContent">
+    <!-- Total Stats Tab Pane -->
+    <div class="tab-pane fade show active" id="content-total" role="tabpanel" tabindex="0">
+        <div class="table-responsive pt-3">
+            <table class="table table-striped table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>項目</th>
+                        <th>成功</th>
+                        <th>失敗</th>
+                        <th>試投</th>
+                        <th>成功率</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>3ポイント</td>
+                        <td id="summary-total-fg3_made">{{ summary.fg3_made }}</td>
+                        <td id="summary-total-fg3_miss">{{ summary.fg3_miss }}</td>
+                        <td id="summary-total-fg3_attempt">{{ summary.fg3_made + summary.fg3_miss }}</td>
+                        <td id="summary-total-fg3_pct">{{ '%.1f'|format(100 * summary.fg3_made / (summary.fg3_made + summary.fg3_miss)) if (summary.fg3_made + summary.fg3_miss) > 0 else '0.0' }}%</td>
+                    </tr>
+                    <tr>
+                        <td>2ポイント</td>
+                        <td id="summary-total-fg2_made">{{ summary.fg2_made }}</td>
+                        <td id="summary-total-fg2_miss">{{ summary.fg2_miss }}</td>
+                        <td id="summary-total-fg2_attempt">{{ summary.fg2_made + summary.fg2_miss }}</td>
+                        <td id="summary-total-fg2_pct">{{ '%.1f'|format(100 * summary.fg2_made / (summary.fg2_made + summary.fg2_miss)) if (summary.fg2_made + summary.fg2_miss) > 0 else '0.0' }}%</td>
+                    </tr>
+                    <tr>
+                        <td>フリースロー</td>
+                        <td id="summary-total-ft_made">{{ summary.ft_made }}</td>
+                        <td id="summary-total-ft_miss">{{ summary.ft_miss }}</td>
+                        <td id="summary-total-ft_attempt">{{ summary.ft_made + summary.ft_miss }}</td>
+                        <td id="summary-total-ft_pct">{{ '%.1f'|format(100 * summary.ft_made / (summary.ft_made + summary.ft_miss)) if (summary.ft_made + summary.ft_miss) > 0 else '0.0' }}%</td>
+                    </tr>
+                </tbody>
+            </table>
+            <table class="table table-striped table-bordered mt-3">
+                <thead class="table-light">
+                    <tr><th>項目</th><th>合計</th><th>項目</th><th>合計</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>オフェンスリバウンド</td><td id="summary-total-orb">{{ summary.orb }}</td><td>ディフェンスリバウンド</td><td id="summary-total-drb">{{ summary.drb }}</td></tr>
+                    <tr><td>アシスト</td><td id="summary-total-ast">{{ summary.ast }}</td><td>スティール</td><td id="summary-total-stl">{{ summary.stl }}</td></tr>
+                    <tr><td>ブロック</td><td id="summary-total-blk">{{ summary.blk }}</td><td>被ファール</td><td id="summary-total-fd">{{ summary.fd }}</td></tr>
+                    <tr><td>ファール</td><td id="summary-total-pf">{{ summary.pf }}</td><td>ターンオーバー</td><td id="summary-total-to">{{ summary.to }}</td></tr>
+                </tbody>
+            </table>
+
+            <table class="table table-striped table-bordered mt-3">
+                <thead class="table-info">
+                    <tr><th colspan="4" class="text-center">専用ボーナス (EFF-Grow)</th></tr>
+                    <tr><th>項目</th><th>合計</th><th>項目</th><th>合計</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>リングアタック</td><td id="summary-total-ring_attack">{{ summary.ring_attack | default(0) }}</td><td>FT獲得</td><td id="summary-total-ft_drawn_bonus">{{ summary.ft_drawn_bonus | default(0) }}</td></tr>
+                    <tr><td>ルーズボール・ダイブ</td><td id="summary-total-loose_ball_dive">{{ summary.loose_ball_dive | default(0) }}</td><td>ゲームメイク・ブースト</td><td id="summary-total-gamemake_boost">{{ summary.gamemake_boost | default(0) }}</td></tr>
+                    <tr><td>ベンチ・データハック</td><td id="summary-total-bench_datahack">{{ summary.bench_datahack | default(0) }}</td><td>キャプテン・ブースト</td><td id="summary-total-captain_boost">{{ summary.captain_boost | default(0) }}</td></tr>
+                    <tr><td>オフェンスチャージ獲得</td><td id="summary-total-charge_drawn">{{ summary.charge_drawn | default(0) }}</td><td></td><td></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% for q in quarters %}
+    <div class="tab-pane fade" id="content-{{ q.id }}" role="tabpanel" tabindex="0">
+      
+      {% if q.quarter_no > 4 %}
+      <div class="d-flex justify-content-end pt-3">
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteQuarter({{ q.id }})">
+              <i class="bi bi-trash"></i> このOTを削除
+          </button>
+      </div>
+      {% endif %}
+      <!-- スタッツ入力エリア -->
+      <div class="stats-area mt-2">
+          <h6 class="mb-2 fw-bold text-secondary border-bottom pb-1">公式スタッツ</h6>
+          <div class="row g-3 mb-4">
+            {{ stat_card(q, 'fg3_made', '3P Made', col_class='col-4') }}
+            {{ stat_card(q, 'fg2_made', '2P Made', col_class='col-4') }}
+            {{ stat_card(q, 'ft_made', 'FT Made', col_class='col-4') }}
+            {{ stat_card(q, 'fg3_miss', '3P Miss', col_class='col-4') }}
+            {{ stat_card(q, 'fg2_miss', '2P Miss', col_class='col-4') }}
+            {{ stat_card(q, 'ft_miss', 'FT Miss', col_class='col-4', bg_class='bg-warning-subtle') }}
+            {{ stat_card(q, 'orb', 'O.Reb') }}
+            {{ stat_card(q, 'drb', 'D.Reb') }}
+            {{ stat_card(q, 'ast', 'Assist', col_class='col-4') }}
+            {{ stat_card(q, 'stl', 'Steal', col_class='col-4') }}
+            {{ stat_card(q, 'blk', 'Block', col_class='col-4') }}
+            {{ stat_card(q, 'pf', 'Foul', col_class='col-4', bg_class='bg-danger-subtle') }}
+            {{ stat_card(q, 'to', 'T.Over', col_class='col-4', bg_class='bg-danger-subtle') }}
+            {{ stat_card(q, 'fd', 'Foul Drawn', col_class='col-4') }}
+          </div>
+
+          <h6 class="mb-2 fw-bold text-info border-bottom pb-1 border-info">専用ボーナス</h6>
+          <div class="row g-3">
+            {{ stat_card(q, 'ring_attack', 'リングアタック', col_class='col-6', bg_class='bg-info-subtle') }}
+            {{ stat_card(q, 'ft_drawn_bonus', 'FT獲得', col_class='col-6', bg_class='bg-info-subtle') }}
+            {{ stat_card(q, 'loose_ball_dive', 'ルーズボールダイブ', col_class='col-6', bg_class='bg-info-subtle') }}
+            {{ stat_card(q, 'gamemake_boost', 'ゲームメイク', col_class='col-6', bg_class='bg-info-subtle') }}
+            {{ stat_card(q, 'bench_datahack', 'データハック', col_class='col-6', bg_class='bg-info-subtle') }}
+            {{ stat_card(q, 'captain_boost', 'キャプテン', col_class='col-6', bg_class='bg-info-subtle') }}
+            {{ stat_card(q, 'charge_drawn', 'オフェンスチャージ獲得', col_class='col-12', bg_class='bg-info-subtle') }}
+          </div>
+      </div>
+
+      <!-- 時間管理エリア -->
+      <div class="time-management mt-4 p-3 border rounded bg-light">
+        <h5 class="mb-3 text-center">出場時間</h5>
+        <div class="row align-items-center">
+            <div class="col">
+                <div class="input-group">
+                    <span class="input-group-text">残り</span>
+                    <input type="number" class="form-control text-center" id="timer-min-{{ q.id }}" value="{{ default_min }}" min="0">
+                    <span class="input-group-text">分</span>
+                    <input type="number" class="form-control text-center" id="timer-sec-{{ q.id }}" value="00" min="0" max="59">
+                    <span class="input-group-text">秒</span>
+                </div>
+            </div>
+        </div>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-3">
+            <button class="btn btn-primary" id="btn-in-{{ q.id }}" onclick="recordIn({{ q.id }})">
+                <i class="bi bi-box-arrow-in-right"></i> コートイン
+            </button>
+            <button class="btn btn-secondary" id="btn-out-{{ q.id }}" onclick="recordOut({{ q.id }})" disabled>
+                <i class="bi bi-box-arrow-right"></i> コートアウト
+            </button>
+        </div>
+        <!-- 記録済みの出場時間を表示するリスト -->
+        <div id="appearances-list-{{ q.id }}" class="list-group mt-3">
+            {% for appearance in q.appearances|sort(attribute='in_time_sec', reverse=True) %}
+                <div class="list-group-item d-flex justify-content-between align-items-center small" id="appearance-item-{{ appearance.id }}">
+                    <div class="flex-grow-1">
+                        <span>
+                            IN: <strong>{{ (appearance.in_time_sec // 60)|int }}:{{ '%02d'|format(appearance.in_time_sec % 60) }}</strong>
+                            →
+                            OUT: <strong>{{ (appearance.out_time_sec // 60)|int }}:{{ '%02d'|format(appearance.out_time_sec % 60) }}</strong>
+                        </span>
+                        <span class="badge bg-primary rounded-pill ms-2">{{ ((appearance.in_time_sec - appearance.out_time_sec) // 60)|int }}:{{ '%02d'|format((appearance.in_time_sec - appearance.out_time_sec) % 60) }}</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="deleteAppearance({{ appearance.id }})">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 試合情報編集モーダル -->
+  <div class="modal fade" id="editGameModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">試合情報の編集</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editGameForm">
+                    <div class="mb-3">
+                        <label for="edit-opponent" class="form-label">対戦相手</label>
+                        <input type="text" class="form-control" id="edit-opponent" value="{{ game.opponent }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-date" class="form-label">日付</label>
+                        <input type="date" class="form-control" id="edit-date" value="{{ game.date.strftime('%Y-%m-%d') if game.date }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-category" class="form-label">カテゴリ</label>
+                        <input type="text" class="form-control" id="edit-category" value="{{ game.category }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-leverage-item" class="form-label">勝負項目（レバレッジ）</label>
+                        <select class="form-select" id="edit-leverage-item">
+                            <option value="" {% if not game.leverage_item %}selected{% endif %}>なし</option>
+                            <option value="pts" {% if game.leverage_item == 'pts' %}selected{% endif %}>得点 (PTS)</option>
+                            <option value="drb" {% if game.leverage_item == 'drb' %}selected{% endif %}>Dリバウンド (DRB)</option>
+                            <option value="orb" {% if game.leverage_item == 'orb' %}selected{% endif %}>Oリバウンド (ORB)</option>
+                            <option value="ast" {% if game.leverage_item == 'ast' %}selected{% endif %}>アシスト (AST)</option>
+                            <option value="stl" {% if game.leverage_item == 'stl' %}selected{% endif %}>スティール (STL)</option>
+                            <option value="blk" {% if game.leverage_item == 'blk' %}selected{% endif %}>ブロック (BLK)</option>
+                            <option value="ring_attack" {% if game.leverage_item == 'ring_attack' %}selected{% endif %}>リングアタック</option>
+                            <option value="ft_drawn_bonus" {% if game.leverage_item == 'ft_drawn_bonus' %}selected{% endif %}>フリースロー(FT)獲得</option>
+                            <option value="loose_ball_dive" {% if game.leverage_item == 'loose_ball_dive' %}selected{% endif %}>ルーズボール・ダイブ</option>
+                            <option value="gamemake_boost" {% if game.leverage_item == 'gamemake_boost' %}selected{% endif %}>ゲームメイク・ブースト</option>
+                            <option value="bench_datahack" {% if game.leverage_item == 'bench_datahack' %}selected{% endif %}>ベンチ・データハック</option>
+                            <option value="captain_boost" {% if game.leverage_item == 'captain_boost' %}selected{% endif %}>キャプテン・ブースト</option>
+                            <option value="charge_drawn" {% if game.leverage_item == 'charge_drawn' %}selected{% endif %}>オフェンスチャージ獲得</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="saveGameInfo()">保存</button>
+            </div>
+        </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 出場開始時間をクオーターIDごとに保持するオブジェクト
+let openAppearances = {};
+// 集計データを保持するオブジェクト
+let gameSummary = {{ summary|tojson }};
+let quarterSummaries = {{ quarter_summaries|tojson }};
+let currentTabType = 'total'; // 'quarter' or 'total'
+let currentQuarterId = null;
+
+// フッターを現在のタブに合わせて更新する関数
+function refreshFooter() {
+    if (currentTabType === 'total') {
+        updateGameSummary(gameSummary);
+    } else if (currentQuarterId && quarterSummaries[currentQuarterId]) {
+        updateGameSummary(quarterSummaries[currentQuarterId]);
+    }
+}
+
+// タブ切り替えイベントの監視
+document.addEventListener('DOMContentLoaded', function() {
+    const tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
+    tabEls.forEach(tabEl => {
+        tabEl.addEventListener('shown.bs.tab', event => {
+            const targetId = event.target.getAttribute('data-bs-target'); // #content-123 or #content-total
+            if (targetId === '#content-total') {
+                currentTabType = 'total';
+            } else {
+                currentTabType = 'quarter';
+                currentQuarterId = targetId.replace('#content-', '');
+            }
+            refreshFooter();
+        });
+    });
+});
+
+// ヘルパー：分・秒の入力から合計秒数を取得
+function getTimeInSeconds(quarterId) {
+    const minutes = parseInt(document.getElementById(`timer-min-${quarterId}`).value, 10) || 0;
+    const seconds = parseInt(document.getElementById(`timer-sec-${quarterId}`).value, 10) || 0;
+    return (minutes * 60) + seconds;
+}
+
+// 集計フッターを更新する関数
+function updateGameSummary(summary) {
+    if (!summary) return;
+
+    document.getElementById('summary-total-score').innerText = summary.total_score;
+    document.getElementById('summary-total-rebounds').innerText = summary.total_rebounds;
+    document.getElementById('summary-total-evaluation').innerText = summary.total_evaluation.toFixed(1);
+
+    const totalSeconds = summary.total_play_time_sec;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    document.getElementById('summary-total-play-time').innerText = `${minutes}:${seconds}`;
+}
+
+// 試合全体タブを更新する関数
+function updateTotalStatsTab(summary) {
+    if (!summary) return;
+
+    const stats = [
+        'fg3_made', 'fg3_miss', 'fg2_made', 'fg2_miss', 'ft_made', 'ft_miss',
+        'orb', 'drb', 'ast', 'stl', 'blk', 'fd', 'pf', 'to',
+        'ring_attack', 'ft_drawn_bonus', 'loose_ball_dive', 'gamemake_boost', 'bench_datahack', 'captain_boost', 'charge_drawn'
+    ];
+
+    stats.forEach(stat => {
+        const el = document.getElementById(`summary-total-${stat}`);
+        if (el) el.innerText = summary[stat] !== undefined ? summary[stat] : 0;
+    });
+
+    // Update attempts and percentages
+    const fg3_total = summary.fg3_made + summary.fg3_miss;
+    document.getElementById('summary-total-fg3_attempt').innerText = fg3_total;
+    document.getElementById('summary-total-fg3_pct').innerText = fg3_total > 0 ? `${(100 * summary.fg3_made / fg3_total).toFixed(1)}%` : '0.0%';
+
+    const fg2_total = summary.fg2_made + summary.fg2_miss;
+    document.getElementById('summary-total-fg2_attempt').innerText = fg2_total;
+    document.getElementById('summary-total-fg2_pct').innerText = fg2_total > 0 ? `${(100 * summary.fg2_made / fg2_total).toFixed(1)}%` : '0.0%';
+
+    const ft_total = summary.ft_made + summary.ft_miss;
+    document.getElementById('summary-total-ft_attempt').innerText = ft_total;
+    document.getElementById('summary-total-ft_pct').innerText = ft_total > 0 ? `${(100 * summary.ft_made / ft_total).toFixed(1)}%` : '0.0%';
+}
+
+// 初期ロード時に試合全体タブを更新
+document.addEventListener('DOMContentLoaded', function() {
+    updateTotalStatsTab({{ summary|tojson }});
+    refreshFooter(); // 初期表示のタブに合わせてフッターを更新
+});
+
+
+function updateStat(statId, field, delta) {
+  // 1. UIを即時更新 (Optimistic Update)
+  const valueSpan = document.getElementById(`val-${field}-${statId}`);
+  const minusButton = document.getElementById(`btn-minus-${field}-${statId}`);
+  const currentValue = parseInt(valueSpan.innerText, 10) || 0;
+  const newValue = Math.max(0, currentValue + delta);
+
+  valueSpan.innerText = newValue;
+  if (minusButton) {
+    minusButton.disabled = newValue <= 0;
+  }
+
+  // 2. サーバーに非同期で更新を送信
+  fetch('/api/stats/update', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({stat_id: statId, field: field, delta: delta})
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // 3a. 成功した場合: サーバーからの値が万一異なればそれで補正
+      if (data.new_value !== newValue) {
+          valueSpan.innerText = data.new_value;
+          if (minusButton) {
+            minusButton.disabled = data.new_value <= 0;
+          }
+      }
+      
+      // データを更新
+      gameSummary = data.summary;
+      if (data.quarter_summary && data.quarter_id) {
+          quarterSummaries[data.quarter_id] = data.quarter_summary;
+      }
+
+      refreshFooter();
+      updateTotalStatsTab(data.summary);
+    } else {
+      // 3b. 失敗した場合: UIを元の値に戻す
+      valueSpan.innerText = currentValue;
+      if (minusButton) {
+        minusButton.disabled = currentValue <= 0;
+      }
+      alert('更新に失敗しました。');
+    }
+  })
+  .catch(error => {
+    // 3c. 通信エラーの場合: UIを元の値に戻す
+    valueSpan.innerText = currentValue;
+    if (minusButton) {
+      minusButton.disabled = currentValue <= 0;
+    }
+    alert('サーバーとの通信に失敗しました。');
+    console.error('Error:', error);
+  });
+}
+
+function addOT(gameId) {
+    if (!confirm('延長（OT）を追加しますか？')) {
+        return;
+    }
+    fetch(`/api/game/${gameId}/add_ot`, {
+        method: 'POST',
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 画面をリロードして新しいOTタブを表示
+            window.location.reload();
+        } else {
+            alert('OTの追加に失敗しました。');
+        }
+    })
+    .catch(error => {
+        alert('サーバーとの通信に失敗しました。');
+        console.error('Error:', error);
+    });
+}
+
+function deleteQuarter(quarterId) {
+    if (confirm('この延長クオーターを削除しますか？\n関連するスタッツと出場記録も全て削除されます。')) {
+        fetch(`/api/quarter/${quarterId}`, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 削除成功後、ページをリロードしてタブの表示を更新します。
+                window.location.reload();
+            } else {
+                alert('延長クオーターの削除に失敗しました: ' + (data.message || ''));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('サーバーとの通信に失敗しました。');
+        });
+    }
+}
+
+function deleteAppearance(appearanceId) {
+    if (confirm('この出場記録を削除しますか？')) {
+        fetch(`/api/appearance/${appearanceId}`, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // UIから要素を削除
+                document.getElementById(`appearance-item-${appearanceId}`).remove();
+
+                // 集計データを更新
+                gameSummary = data.summary;
+                if (data.quarter_summary && data.quarter_id) {
+                    quarterSummaries[data.quarter_id] = data.quarter_summary;
+                }
+
+                // 表示を更新
+                refreshFooter();
+                updateTotalStatsTab(data.summary);
+            } else {
+                alert('出場記録の削除に失敗しました。');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('サーバーとの通信に失敗しました。');
+        });
+    }
+}
+
+function recordIn(quarterId) {
+  const inTime = getTimeInSeconds(quarterId);
+  openAppearances[quarterId] = inTime;
+
+  const inButton = document.getElementById(`btn-in-${quarterId}`);
+  const outButton = document.getElementById(`btn-out-${quarterId}`);
+
+  // UIを更新して状態をわかりやすくする
+  inButton.disabled = true;
+  const inTimeFormatted = `${Math.floor(inTime / 60)}:${String(inTime % 60).padStart(2, '0')}`;
+  inButton.innerHTML = `<i class="bi bi-stopwatch"></i> 出場中... (${inTimeFormatted})`;
+  outButton.disabled = false;
+
+  // 時間管理エリアの背景色を変更してフィードバック
+  document.querySelector(`#content-${quarterId} .time-management`).classList.add('bg-success-subtle');
+}
+
+function recordOut(quarterId) {
+  const inTime = openAppearances[quarterId];
+  if (inTime === undefined) {
+    alert('「コートイン」が記録されていません。');
+    return;
+  }
+
+  const outTime = getTimeInSeconds(quarterId);
+  if (outTime > inTime) {
+      alert('コートアウトの時間は、コートインの時間より前または同じでなければなりません。');
+      return;
+  }
+
+  const payload = {
+      quarter_id: quarterId,
+      in_time_sec: inTime,
+      out_time_sec: outTime
+  };
+
+  const outButton = document.getElementById(`btn-out-${quarterId}`);
+  outButton.disabled = true;
+  outButton.innerHTML = `<i class="bi bi-hourglass-split"></i> 記録中...`;
+
+  fetch('/api/appearance/add', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+  })
+  .then(response => {
+      if (!response.ok) { throw new Error('サーバーでの記録に失敗しました。'); }
+      return response.json();
+  })
+  .then(data => {
+      if (data.success) {
+          // 画面に新しい出場記録を動的に追加
+          const list = document.getElementById(`appearances-list-${quarterId}`);
+          const duration = inTime - outTime;
+          const newAppearanceHTML = `
+              <div class="list-group-item d-flex justify-content-between align-items-center small" id="appearance-item-${data.appearance_id}">
+                  <div class="flex-grow-1">
+                      <span>
+                          IN: <strong>${Math.floor(inTime / 60)}:${String(inTime % 60).padStart(2, '0')}</strong>
+                          →
+                          OUT: <strong>${Math.floor(outTime / 60)}:${String(outTime % 60).padStart(2, '0')}</strong>
+                      </span>
+                      <span class="badge bg-primary rounded-pill ms-2">${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')}</span>
+                  </div>
+                  <button class="btn btn-sm btn-outline-danger border-0" onclick="deleteAppearance(${data.appearance_id})">
+                      <i class="bi bi-x-lg"></i>
+                  </button>
+              </div>`;
+          list.insertAdjacentHTML('afterbegin', newAppearanceHTML);
+
+          // 状態とUIをリセット
+          delete openAppearances[quarterId];
+          const inButton = document.getElementById(`btn-in-${quarterId}`);
+          inButton.disabled = false;
+          inButton.innerHTML = `<i class="bi bi-box-arrow-in-right"></i> コートイン`;
+          outButton.innerHTML = `<i class="bi bi-box-arrow-right"></i> コートアウト`;
+          document.querySelector(`#content-${quarterId} .time-management`).classList.remove('bg-success-subtle');
+
+          // データを更新
+          gameSummary = data.summary;
+          if (data.quarter_summary && data.quarter_id) {
+              quarterSummaries[data.quarter_id] = data.quarter_summary;
+          }
+
+          refreshFooter();
+          updateTotalStatsTab(data.summary);
+      } else {
+          throw new Error(data.message || '記録に失敗しました。');
+      }
+  })
+  .catch(error => {
+      alert(error.message);
+      outButton.disabled = false; // エラー時はボタンを元に戻す
+      outButton.innerHTML = `<i class="bi bi-box-arrow-right"></i> コートアウト`;
+  });
+}
+
+function toggleHeader() {
+    const header = document.getElementById('game-header-info');
+    const tabs = document.getElementById('quarterTabs');
+    const summary = document.getElementById('game-summary-info');
+    const icon = document.getElementById('toggle-header-icon');
+    const text = document.getElementById('toggle-header-text');
+    
+    if (header.style.display === 'none') {
+        header.style.display = '';
+        tabs.style.display = '';
+        if (summary) summary.style.display = '';
+        icon.className = 'bi bi-chevron-up';
+        text.innerText = 'ヘッダーを隠す';
+    } else {
+        header.style.display = 'none';
+        tabs.style.display = 'none';
+        if (summary) summary.style.display = 'none';
+        icon.className = 'bi bi-chevron-down';
+        text.innerText = 'ヘッダーを表示';
+    }
+}
+
+function saveGameInfo() {
+    const opponent = document.getElementById('edit-opponent').value;
+    const date = document.getElementById('edit-date').value;
+    const category = document.getElementById('edit-category').value;
+    const leverageItem = document.getElementById('edit-leverage-item').value;
+
+    fetch(`/api/game/{{ game.id }}/update`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ opponent: opponent, date: date, category: category, leverage_item: leverageItem })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('更新に失敗しました: ' + (data.message || ''));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('サーバーとの通信に失敗しました。');
+    });
+}
+</script>
+{% endblock %}
